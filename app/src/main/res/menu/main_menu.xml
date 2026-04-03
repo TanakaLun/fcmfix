@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/menu_disable_autoclean"
+        android:title="阻止自动清除通知"
+        android:checkable="true" />
+
+    <item
+        android:id="@+id/menu_allow_icebox"
+        android:title="允许唤醒冰箱应用"
+        android:checkable="true" />
+
+    <item
+        android:id="@+id/menu_select_all_fcm"
+        android:title="全选包含 FCM 的应用"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/menu_fcm_diag"
+        android:title="打开 FCM 诊断"
+        app:showAsAction="never" />
+</menu>
