@@ -23,3 +23,4 @@
 # Retain Xposed entry point
 #-keep class com.kooritea.fcmfix.XposedMain
 -adaptresourcefilenames
+-adaptresourcefilecontents
