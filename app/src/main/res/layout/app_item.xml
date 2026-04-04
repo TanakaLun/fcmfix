@@ -48,17 +48,26 @@
                     android:layout_height="wrap_content"
                     android:textAppearance="?attr/textAppearanceTitleMedium"
                     android:textColor="?attr/colorOnSurface"
-                    tools:text="fcmfix" />
+                    tools:text="FCMFix" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/includeFcm"
                     style="@style/Widget.Material3.Chip.Assist"
                     android:layout_width="wrap_content"
-                    android:layout_height="32dp"
+                    android:layout_height="18dp"
                     android:layout_marginStart="8dp"
                     android:text="FCM"
-                    android:textSize="10sp"
-                    app:chipMinTouchTargetSize="0dp" />
+                    android:textSize="9sp"
+                    android:textColor="?attr/colorOnPrimary"
+                    android:gravity="center"
+                    app:chipBackgroundColor="?attr/colorPrimary"
+                    app:chipStrokeWidth="0dp" 
+                    app:chipMinTouchTargetSize="0dp"
+                    app:shapeAppearanceOverlay="@style/ShapeAppearance.FCMFix.SmallRoundChip"
+                    app:chipStartPadding="6dp"
+                    app:chipEndPadding="6dp"
+                    app:textStartPadding="0dp"
+                    app:textEndPadding="0dp" />
             </LinearLayout>
 
             <TextView
