@@ -31,7 +31,6 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.checkbox.MaterialCheckBox;
 import com.google.android.material.color.DynamicColors;
@@ -94,6 +93,7 @@ public class MainActivity extends AppCompatActivity {
 
         appListAdapter = new AppListAdapter();
         recyclerView.setAdapter(appListAdapter);
+        
         appListAdapter.refreshList();
     }
 
@@ -133,7 +133,6 @@ public class MainActivity extends AppCompatActivity {
     private void loadConfigFromRemotePreferences() {
         SharedPreferences pref = getRemotePreferencesOrNull();
         if (pref == null) return;
-        
         this.allowList.clear();
         this.allowList.addAll(pref.getStringSet("allowList", new HashSet<>()));
         try {
@@ -150,7 +149,6 @@ public class MainActivity extends AppCompatActivity {
         try {
             SharedPreferences pref = getRemotePreferencesOrNull();
             if (pref == null) throw new IllegalStateException("Service not connected");
-            
             this.config.put("allowList", new JSONArray(this.allowList));
             pref.edit()
                     .putBoolean("init", true)
@@ -159,13 +157,9 @@ public class MainActivity extends AppCompatActivity {
                     .putBoolean("includeIceBoxDisableApp", this.config.optBoolean("includeIceBoxDisableApp"))
                     .putBoolean("noResponseNotification", this.config.optBoolean("noResponseNotification"))
                     .apply();
-            
             sendBroadcast(new Intent("com.kooritea.fcmfix.update.config"));
         } catch (Throwable e) {
-            new MaterialAlertDialogBuilder(this)
-                    .setTitle("保存失败")
-                    .setMessage(e.getMessage())
-                    .show();
+            new MaterialAlertDialogBuilder(this).setTitle("保存失败").setMessage(e.getMessage()).show();
         }
     }
 
@@ -175,8 +169,7 @@ public class MainActivity extends AppCompatActivity {
 
         class ViewHolder extends RecyclerView.ViewHolder {
             ImageView icon;
-            TextView name, packageName;
-            TextView includeFcm;
+            TextView name, packageName, includeFcm;
             MaterialCheckBox isAllow;
 
             public ViewHolder(View view) {
@@ -226,14 +219,14 @@ public class MainActivity extends AppCompatActivity {
                 _notAllow.sort(nameComparator);
                 _noFcm.sort(nameComparator);
 
-                List<AppInfo> newList = new ArrayList<>();
-                newList.addAll(_allow);
-                newList.addAll(_notAllow);
-                newList.addAll(_noFcm);
+                List<AppInfo> mergedList = new ArrayList<>();
+                mergedList.addAll(_allow);
+                mergedList.addAll(_notAllow);
+                mergedList.addAll(_noFcm);
 
                 new Handler(Looper.getMainLooper()).post(() -> {
                     mAppList.clear();
-                    mAppList.addAll(newList);
+                    mAppList.addAll(mergedList);
                     notifyDataSetChanged();
                     progressBar.setVisibility(View.GONE);
                     recyclerView.setVisibility(View.VISIBLE);
@@ -256,10 +249,8 @@ public class MainActivity extends AppCompatActivity {
             holder.name.setText(app.name);
             holder.packageName.setText(app.packageName);
             holder.includeFcm.setVisibility(app.includeFcm ? View.VISIBLE : View.GONE);
-            
             holder.isAllow.setOnCheckedChangeListener(null);
             holder.isAllow.setChecked(app.isAllow);
-            
             holder.itemView.setOnClickListener(v -> {
                 app.isAllow = !app.isAllow;
                 if (app.isAllow) allowList.add(app.packageName);

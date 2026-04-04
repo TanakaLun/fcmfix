@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:background="?attr/colorSurface"
         android:fitsSystemWindows="true"
-        app:liftOnScroll="false">
+        app:liftOnScroll="true">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/topAppBar"
@@ -36,7 +36,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
-        android:paddingTop="8dp"
         android:visibility="gone"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
