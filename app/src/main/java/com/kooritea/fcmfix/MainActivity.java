@@ -11,6 +11,8 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -36,6 +38,7 @@ import com.google.android.material.checkbox.MaterialCheckBox;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
+import com.google.android.material.textfield.TextInputEditText;
 import com.kooritea.fcmfix.util.IceboxUtils;
 
 import io.github.libxposed.service.XposedService;
@@ -59,8 +62,14 @@ public class MainActivity extends AppCompatActivity {
     private static XposedService xposedService;
     private LinearProgressIndicator progressBar;
     private RecyclerView recyclerView;
+    private View searchBarContainer;
+    private TextInputEditText searchEditText;
+
     private final Set<String> allowList = new HashSet<>();
     private final JSONObject config = new JSONObject();
+    
+    private final List<AppInfo> mAppListFull = new ArrayList<>();
+    
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     @Override
@@ -75,7 +84,18 @@ public class MainActivity extends AppCompatActivity {
 
         progressBar = findViewById(R.id.progress_bar);
         recyclerView = findViewById(R.id.recycler_view);
+        searchBarContainer = findViewById(R.id.search_bar_container);
+        searchEditText = findViewById(R.id.search_edit_text);
+        
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        searchEditText.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (appListAdapter != null) appListAdapter.filter(s.toString());
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
 
         ViewCompat.setOnApplyWindowInsetsListener(recyclerView, (v, windowInsets) -> {
             Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -84,16 +104,19 @@ public class MainActivity extends AppCompatActivity {
         });
 
         initXposedService();
+        checkPermissions();
 
+        appListAdapter = new AppListAdapter();
+        recyclerView.setAdapter(appListAdapter);
+        appListAdapter.refreshList();
+    }
+
+    private void checkPermissions() {
         try {
             if (ContextCompat.checkSelfPermission(this, IceboxUtils.SDK_PERMISSION) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, new String[]{IceboxUtils.SDK_PERMISSION}, IceboxUtils.REQUEST_CODE);
             }
         } catch (Throwable ignored) {}
-
-        appListAdapter = new AppListAdapter();
-        recyclerView.setAdapter(appListAdapter);
-        appListAdapter.refreshList();
     }
 
     private void initXposedService() {
@@ -118,34 +141,25 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private SharedPreferences getRemotePreferencesOrNull() {
-        if (xposedService == null) return null;
-        try {
-            return xposedService.getRemotePreferences("config");
-        } catch (Throwable e) {
-            return null;
-        }
-    }
-
     private void loadConfigFromRemotePreferences() {
-        SharedPreferences pref = getRemotePreferencesOrNull();
-        if (pref == null) return;
-        this.allowList.clear();
-        this.allowList.addAll(pref.getStringSet("allowList", new HashSet<>()));
+        if (xposedService == null) return;
         try {
+            SharedPreferences pref = xposedService.getRemotePreferences("config");
+            this.allowList.clear();
+            this.allowList.addAll(pref.getStringSet("allowList", new HashSet<>()));
             this.config.put("allowList", new JSONArray(this.allowList));
             this.config.put("disableAutoCleanNotification", pref.getBoolean("disableAutoCleanNotification", false));
             this.config.put("includeIceBoxDisableApp", pref.getBoolean("includeIceBoxDisableApp", false));
             this.config.put("noResponseNotification", pref.getBoolean("noResponseNotification", false));
-        } catch (JSONException e) {
+        } catch (Throwable e) {
             Log.e("FCMFix", "Load config error", e);
         }
     }
 
     private void updateConfig() {
         try {
-            SharedPreferences pref = getRemotePreferencesOrNull();
-            if (pref == null) throw new IllegalStateException("Service not connected");
+            if (xposedService == null) return;
+            SharedPreferences pref = xposedService.getRemotePreferences("config");
             this.config.put("allowList", new JSONArray(this.allowList));
             pref.edit()
                     .putBoolean("init", true)
@@ -163,21 +177,6 @@ public class MainActivity extends AppCompatActivity {
     private class AppListAdapter extends RecyclerView.Adapter<AppListAdapter.ViewHolder> {
         private final List<AppInfo> mAppList = new ArrayList<>();
         private boolean isRefreshing = false;
-
-        class ViewHolder extends RecyclerView.ViewHolder {
-            ImageView icon;
-            TextView name, packageName, includeFcm;
-            MaterialCheckBox isAllow;
-
-            public ViewHolder(View view) {
-                super(view);
-                icon = view.findViewById(R.id.icon);
-                name = view.findViewById(R.id.name);
-                packageName = view.findViewById(R.id.packageName);
-                includeFcm = view.findViewById(R.id.includeFcm);
-                isAllow = view.findViewById(R.id.isAllow);
-            }
-        }
 
         @SuppressLint("NotifyDataSetChanged")
         public void refreshList() {
@@ -222,14 +221,34 @@ public class MainActivity extends AppCompatActivity {
                 fullList.addAll(_noFcm);
 
                 new Handler(Looper.getMainLooper()).post(() -> {
-                    mAppList.clear();
-                    mAppList.addAll(fullList);
-                    notifyDataSetChanged();
+                    mAppListFull.clear();
+                    mAppListFull.addAll(fullList);
+                    
+                    filter(searchEditText.getText().toString());
+                    
                     progressBar.setVisibility(View.GONE);
                     recyclerView.setVisibility(View.VISIBLE);
+                    searchBarContainer.setVisibility(View.VISIBLE);
                     isRefreshing = false;
                 });
             });
+        }
+
+        @SuppressLint("NotifyDataSetChanged")
+        public void filter(String query) {
+            String pattern = query.toLowerCase().trim();
+            mAppList.clear();
+            if (pattern.isEmpty()) {
+                mAppList.addAll(mAppListFull);
+            } else {
+                for (AppInfo info : mAppListFull) {
+                    if (info.name.toLowerCase().contains(pattern) || 
+                        info.packageName.toLowerCase().contains(pattern)) {
+                        mAppList.add(info);
+                    }
+                }
+            }
+            notifyDataSetChanged();
         }
 
         @NonNull
@@ -248,6 +267,7 @@ public class MainActivity extends AppCompatActivity {
             holder.includeFcm.setVisibility(app.includeFcm ? View.VISIBLE : View.GONE);
             holder.isAllow.setOnCheckedChangeListener(null);
             holder.isAllow.setChecked(app.isAllow);
+            
             holder.itemView.setOnClickListener(v -> {
                 app.isAllow = !app.isAllow;
                 if (app.isAllow) allowList.add(app.packageName);
@@ -259,6 +279,20 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public int getItemCount() { return mAppList.size(); }
+
+        class ViewHolder extends RecyclerView.ViewHolder {
+            ImageView icon;
+            TextView name, packageName, includeFcm;
+            MaterialCheckBox isAllow;
+            ViewHolder(View view) {
+                super(view);
+                icon = view.findViewById(R.id.icon);
+                name = view.findViewById(R.id.name);
+                packageName = view.findViewById(R.id.packageName);
+                includeFcm = view.findViewById(R.id.includeFcm);
+                isAllow = view.findViewById(R.id.isAllow);
+            }
+        }
     }
 
     private static class AppInfo {
@@ -313,14 +347,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void selectAllFcm() {
         if (appListAdapter == null) return;
-        for (AppInfo info : appListAdapter.mAppList) {
+        for (AppInfo info : mAppListFull) {
             if (info.includeFcm) {
                 info.isAllow = true;
                 allowList.add(info.packageName);
             }
         }
         updateConfig();
-        appListAdapter.notifyDataSetChanged();
+        appListAdapter.filter(searchEditText.getText().toString());
     }
 
     private void openFcmDiagnostics() {
