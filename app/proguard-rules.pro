@@ -23,4 +23,4 @@
 # Retain Xposed entry point
 #-keep class com.kooritea.fcmfix.XposedMain
 -adaptresourcefilenames
--adaptresourcefilecontents
+-adaptresourcefilecontents META-INF/xposed/java_init.list
