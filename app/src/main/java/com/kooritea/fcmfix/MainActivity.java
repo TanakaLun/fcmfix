@@ -93,7 +93,6 @@ public class MainActivity extends AppCompatActivity {
 
         appListAdapter = new AppListAdapter();
         recyclerView.setAdapter(appListAdapter);
-        
         appListAdapter.refreshList();
     }
 
@@ -105,9 +104,7 @@ public class MainActivity extends AppCompatActivity {
                     xposedService = service;
                     runOnUiThread(() -> {
                         loadConfigFromRemotePreferences();
-                        if (appListAdapter != null) {
-                            appListAdapter.refreshList();
-                        }
+                        if (appListAdapter != null) appListAdapter.refreshList();
                     });
                 }
 
@@ -219,14 +216,14 @@ public class MainActivity extends AppCompatActivity {
                 _notAllow.sort(nameComparator);
                 _noFcm.sort(nameComparator);
 
-                List<AppInfo> mergedList = new ArrayList<>();
-                mergedList.addAll(_allow);
-                mergedList.addAll(_notAllow);
-                mergedList.addAll(_noFcm);
+                List<AppInfo> fullList = new ArrayList<>();
+                fullList.addAll(_allow);
+                fullList.addAll(_notAllow);
+                fullList.addAll(_noFcm);
 
                 new Handler(Looper.getMainLooper()).post(() -> {
                     mAppList.clear();
-                    mAppList.addAll(mergedList);
+                    mAppList.addAll(fullList);
                     notifyDataSetChanged();
                     progressBar.setVisibility(View.GONE);
                     recyclerView.setVisibility(View.VISIBLE);
