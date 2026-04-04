@@ -7,8 +7,10 @@ import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -49,15 +51,18 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
     private AppListAdapter appListAdapter;
     private static XposedService xposedService;
     private LinearProgressIndicator progressBar;
+    private RecyclerView recyclerView;
     private final Set<String> allowList = new HashSet<>();
     private final JSONObject config = new JSONObject();
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,18 +71,11 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        AppBarLayout appBarLayout = findViewById(R.id.app_bar_layout);
-        ViewCompat.setOnApplyWindowInsetsListener(appBarLayout, (v, windowInsets) -> {
-            Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(0, insets.top, 0, 0);
-            return windowInsets;
-        });
-
         MaterialToolbar toolbar = findViewById(R.id.topAppBar);
         setSupportActionBar(toolbar);
 
         progressBar = findViewById(R.id.progress_bar);
-        RecyclerView recyclerView = findViewById(R.id.recycler_view);
+        recyclerView = findViewById(R.id.recycler_view);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         ViewCompat.setOnApplyWindowInsetsListener(recyclerView, (v, windowInsets) -> {
@@ -94,12 +92,9 @@ public class MainActivity extends AppCompatActivity {
             }
         } catch (Throwable ignored) {}
 
-        new Handler().postDelayed(() -> {
-            appListAdapter = new AppListAdapter();
-            recyclerView.setAdapter(appListAdapter);
-            progressBar.setVisibility(View.GONE);
-            recyclerView.setVisibility(View.VISIBLE);
-        }, 800);
+        appListAdapter = new AppListAdapter();
+        recyclerView.setAdapter(appListAdapter);
+        appListAdapter.refreshList();
     }
 
     private void initXposedService() {
@@ -176,6 +171,7 @@ public class MainActivity extends AppCompatActivity {
 
     private class AppListAdapter extends RecyclerView.Adapter<AppListAdapter.ViewHolder> {
         private final List<AppInfo> mAppList = new ArrayList<>();
+        private boolean isRefreshing = false;
 
         class ViewHolder extends RecyclerView.ViewHolder {
             ImageView icon;
@@ -193,46 +189,57 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        public AppListAdapter() {
-            refreshList();
-        }
-
         @SuppressLint("NotifyDataSetChanged")
         public void refreshList() {
-            mAppList.clear();
-            List<AppInfo> _allow = new ArrayList<>(), _notAllow = new ArrayList<>(), _noFcm = new ArrayList<>();
-            PackageManager pm = getPackageManager();
-            
-            for (PackageInfo pi : pm.getInstalledPackages(PackageManager.GET_RECEIVERS | PackageManager.MATCH_DISABLED_COMPONENTS)) {
-                AppInfo info = new AppInfo(pi, pm);
-                boolean hasFcm = false;
-                if (pi.receivers != null) {
-                    for (ActivityInfo r : pi.receivers) {
-                        if (r.name.contains("FirebaseInstanceIdReceiver") || r.name.contains("AppMeasurementReceiver")) {
-                            hasFcm = true; break;
+            if (isRefreshing) return;
+            isRefreshing = true;
+            progressBar.setVisibility(View.VISIBLE);
+
+            executorService.execute(() -> {
+                List<AppInfo> _allow = new ArrayList<>(), _notAllow = new ArrayList<>(), _noFcm = new ArrayList<>();
+                PackageManager pm = getPackageManager();
+                List<PackageInfo> installedPackages = pm.getInstalledPackages(PackageManager.GET_RECEIVERS | PackageManager.MATCH_DISABLED_COMPONENTS);
+                
+                for (PackageInfo pi : installedPackages) {
+                    AppInfo info = new AppInfo(pi, pm);
+                    boolean hasFcm = false;
+                    if (pi.receivers != null) {
+                        for (ActivityInfo r : pi.receivers) {
+                            if (r.name.contains("FirebaseInstanceIdReceiver") || r.name.contains("AppMeasurementReceiver")) {
+                                hasFcm = true; break;
+                            }
                         }
                     }
+                    info.includeFcm = hasFcm;
+                    if (allowList.contains(info.packageName)) {
+                        info.isAllow = true;
+                        _allow.add(info);
+                    } else if (hasFcm) {
+                        _notAllow.add(info);
+                    } else {
+                        _noFcm.add(info);
+                    }
                 }
-                info.includeFcm = hasFcm;
-                if (allowList.contains(info.packageName)) {
-                    info.isAllow = true;
-                    _allow.add(info);
-                } else if (hasFcm) {
-                    _notAllow.add(info);
-                } else {
-                    _noFcm.add(info);
-                }
-            }
 
-            Comparator<AppInfo> nameComparator = (a, b) -> Collator.getInstance().compare(a.name, b.name);
-            _allow.sort(nameComparator);
-            _notAllow.sort(nameComparator);
-            _noFcm.sort(nameComparator);
-            
-            mAppList.addAll(_allow);
-            mAppList.addAll(_notAllow);
-            mAppList.addAll(_noFcm);
-            notifyDataSetChanged();
+                Comparator<AppInfo> nameComparator = (a, b) -> Collator.getInstance().compare(a.name, b.name);
+                _allow.sort(nameComparator);
+                _notAllow.sort(nameComparator);
+                _noFcm.sort(nameComparator);
+
+                List<AppInfo> newList = new ArrayList<>();
+                newList.addAll(_allow);
+                newList.addAll(_notAllow);
+                newList.addAll(_noFcm);
+
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    mAppList.clear();
+                    mAppList.addAll(newList);
+                    notifyDataSetChanged();
+                    progressBar.setVisibility(View.GONE);
+                    recyclerView.setVisibility(View.VISIBLE);
+                    isRefreshing = false;
+                });
+            });
         }
 
         @NonNull
@@ -268,7 +275,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static class AppInfo {
         String name, packageName;
-        android.graphics.drawable.Drawable icon;
+        Drawable icon;
         boolean isAllow = false, includeFcm = false;
         AppInfo(PackageInfo pi, PackageManager pm) {
             this.name = pi.applicationInfo.loadLabel(pm).toString();
@@ -287,10 +294,8 @@ public class MainActivity extends AppCompatActivity {
     public boolean onPrepareOptionsMenu(Menu menu) {
         MenuItem autoClean = menu.findItem(R.id.menu_disable_autoclean);
         if (autoClean != null) autoClean.setChecked(config.optBoolean("disableAutoCleanNotification"));
-        
         MenuItem icebox = menu.findItem(R.id.menu_allow_icebox);
         if (icebox != null) icebox.setChecked(config.optBoolean("includeIceBoxDisableApp"));
-        
         return super.onPrepareOptionsMenu(menu);
     }
 
@@ -338,5 +343,11 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             Log.e("FCMFix", "Cannot open diagnostics", e);
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        executorService.shutdown();
     }
 }
