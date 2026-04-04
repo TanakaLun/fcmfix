@@ -48,7 +48,7 @@
                     android:layout_height="wrap_content"
                     android:textAppearance="?attr/textAppearanceTitleMedium"
                     android:textColor="?attr/colorOnSurface"
-                    tools:text="FCMFix" />
+                    tools:text="FCM Fix" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/includeFcm"
