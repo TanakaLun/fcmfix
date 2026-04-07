@@ -156,23 +156,37 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void updateConfig() {
+        private void updateConfig() {
         try {
-            if (xposedService == null) return;
+            if (xposedService == null) {
+                throw new IllegalStateException("XposedService 未连接，无法写入远程配置");
+            }
             SharedPreferences pref = xposedService.getRemotePreferences("config");
             this.config.put("allowList", new JSONArray(this.allowList));
-            pref.edit()
+            
+            boolean saved = pref.edit()
                     .putBoolean("init", true)
                     .putStringSet("allowList", new HashSet<>(this.allowList))
                     .putBoolean("disableAutoCleanNotification", this.config.optBoolean("disableAutoCleanNotification"))
                     .putBoolean("includeIceBoxDisableApp", this.config.optBoolean("includeIceBoxDisableApp"))
                     .putBoolean("noResponseNotification", this.config.optBoolean("noResponseNotification"))
-                    .apply();
-            sendBroadcast(new Intent("com.kooritea.fcmfix.update.config"));
+                    .commit();
+
+            if (!saved) {
+                throw new IllegalStateException("配置写入失败");
+            }
+
+            this.sendBroadcast(new Intent("com.kooritea.fcmfix.update.config"));
         } catch (Throwable e) {
-            new MaterialAlertDialogBuilder(this).setTitle("保存失败").setMessage(e.getMessage()).show();
+            Log.e("updateConfig", e.toString());
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle("保存失败")
+                    .setMessage(e.getMessage())
+                    .setPositiveButton("确定", null)
+                    .show();
         }
     }
+
 
     private class AppListAdapter extends RecyclerView.Adapter<AppListAdapter.ViewHolder> {
         private final List<AppInfo> mAppList = new ArrayList<>();
