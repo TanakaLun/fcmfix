@@ -156,7 +156,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-        private void updateConfig() {
+    private void updateConfig() {
         try {
             if (xposedService == null) {
                 throw new IllegalStateException("XposedService 未连接，无法写入远程配置");
@@ -186,7 +186,6 @@ public class MainActivity extends AppCompatActivity {
                     .show();
         }
     }
-
 
     private class AppListAdapter extends RecyclerView.Adapter<AppListAdapter.ViewHolder> {
         private final List<AppInfo> mAppList = new ArrayList<>();
