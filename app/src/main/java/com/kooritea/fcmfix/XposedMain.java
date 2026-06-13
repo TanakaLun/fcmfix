@@ -1,7 +1,6 @@
 package com.kooritea.fcmfix;
 
 import androidx.annotation.NonNull;
-
 import com.kooritea.fcmfix.libxposed.XposedBridge;
 import com.kooritea.fcmfix.xposed.AutoStartFix;
 import com.kooritea.fcmfix.xposed.BroadcastFix;
@@ -11,7 +10,6 @@ import com.kooritea.fcmfix.xposed.OplusProxyFix;
 import com.kooritea.fcmfix.xposed.PowerkeeperFix;
 import com.kooritea.fcmfix.xposed.ReconnectManagerFix;
 import com.kooritea.fcmfix.xposed.XposedModule;
-
 import io.github.libxposed.api.XposedInterface;
 import io.github.libxposed.api.XposedModuleInterface;
 
