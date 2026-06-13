@@ -23,11 +23,11 @@ jobs:
     - name: Retrieve version name
       run: echo VERSION_NAME=$(date "+%Y%m%d")_$(echo ${{ github.event.head_commit.id }} | head -c 7) >> $GITHUB_ENV
 
-    - name: Retrieve version code
-      run: echo VERSION_CODE=$(cat ${{ github.workspace }}/app/build.gradle | grep "versionCode" | grep -Eo "[0-9]+") >> $GITHUB_ENV
+    # - name: Retrieve version code
+      # run: echo VERSION_CODE=$(cat ${{ github.workspace }}/app/build.gradle | grep "versionCode" | grep -Eo "[0-9]+") >> $GITHUB_ENV
 
-    - name: Set version name
-      run: sed -i "s/versionName \".*\"/versionName \"${{ env.VERSION_NAME }}\"/" ${{ github.workspace }}/app/build.gradle
+    # - name: Set version name
+      # run: sed -i "s/versionName \".*\"/versionName \"${{ env.VERSION_NAME }}\"/" ${{ github.workspace }}/app/build.gradle
       
     - name: Build with Gradle
       run: ./gradlew assembleRelease
