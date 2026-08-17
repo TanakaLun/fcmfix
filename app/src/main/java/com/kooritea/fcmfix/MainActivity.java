@@ -32,6 +32,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.checkbox.MaterialCheckBox;
@@ -64,6 +65,7 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView recyclerView;
     private View searchBarContainer;
     private TextInputEditText searchEditText;
+    private SwipeRefreshLayout swipeRefreshLayout;
 
     private final Set<String> allowList = new HashSet<>();
     private final JSONObject config = new JSONObject();
@@ -86,8 +88,30 @@ public class MainActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.recycler_view);
         searchBarContainer = findViewById(R.id.search_bar_container);
         searchEditText = findViewById(R.id.search_edit_text);
+        swipeRefreshLayout = findViewById(R.id.swipe_refresh_layout);
         
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        // 初始化 SwipeRefreshLayout - 使用语义化颜色
+        int colorPrimary = getColorFromAttr(com.google.android.material.R.attr.colorPrimary);
+        int colorSecondary = getColorFromAttr(com.google.android.material.R.attr.colorSecondary);
+        int colorTertiary = getColorFromAttr(com.google.android.material.R.attr.colorTertiary);
+        int colorSurface = getColorFromAttr(com.google.android.material.R.attr.colorSurface);
+        
+        swipeRefreshLayout.setColorSchemeColors(
+            colorPrimary,
+            colorSecondary,
+            colorTertiary
+        );
+        swipeRefreshLayout.setProgressBackgroundColorSchemeColor(colorSurface);
+        
+        swipeRefreshLayout.setOnRefreshListener(() -> {
+            if (appListAdapter != null) {
+                appListAdapter.refreshList();
+            } else {
+                swipeRefreshLayout.setRefreshing(false);
+            }
+        });
 
         searchEditText.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -195,7 +219,13 @@ public class MainActivity extends AppCompatActivity {
         public void refreshList() {
             if (isRefreshing) return;
             isRefreshing = true;
-            progressBar.setVisibility(View.VISIBLE);
+            
+            runOnUiThread(() -> {
+                progressBar.setVisibility(View.VISIBLE);
+                if (swipeRefreshLayout.isRefreshing()) {
+                    swipeRefreshLayout.setRefreshing(false);
+                }
+            });
 
             executorService.execute(() -> {
                 List<AppInfo> _allow = new ArrayList<>(), _notAllow = new ArrayList<>(), _noFcm = new ArrayList<>();
@@ -240,6 +270,7 @@ public class MainActivity extends AppCompatActivity {
                     filter(searchEditText.getText().toString());
                     
                     progressBar.setVisibility(View.GONE);
+                    swipeRefreshLayout.setRefreshing(false);
                     recyclerView.setVisibility(View.VISIBLE);
                     searchBarContainer.setVisibility(View.VISIBLE);
                     isRefreshing = false;
@@ -384,5 +415,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         executorService.shutdown();
+    }
+
+    private int getColorFromAttr(int attrResId) {
+        android.util.TypedValue typedValue = new android.util.TypedValue();
+        boolean resolved = getTheme().resolveAttribute(attrResId, typedValue, true);
+        if (resolved && typedValue.type >= android.util.TypedValue.TYPE_FIRST_COLOR_INT && 
+            typedValue.type <= android.util.TypedValue.TYPE_LAST_COLOR_INT) {
+            return typedValue.data;
+        }
+        return ContextCompat.getColor(this, android.R.color.holo_blue_dark);
     }
 }

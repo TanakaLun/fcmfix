@@ -10,8 +10,8 @@ android {
         applicationId = "com.kooritea.fcmfix"
         minSdk = 29
         targetSdk = 37
-        versionCode = 53
-        versionName = "dev"
+        versionCode = 58
+        versionName = "haruka"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -46,4 +46,5 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.constraintlayout)
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
 }
